@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THERE IS NO WEIGHT</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    </script>
+
+    <style>
+        /* =========================================
+           1. IMPOSTAZIONI GENERALI DELLA PAGINA
+           ========================================= */
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Playfair Display', serif;
+            overflow: hidden; 
+        }
+
+        /* =========================================
+           2. IL NUOVO SFONDO SFOCATO (Infallibile)
+           ========================================= */
+        .sfondo-sfocato {
+            position: fixed; /* Sta incollato allo schermo */
+            top: -5%; left: -5%; 
+            width: 110%; height: 110%;
+            
+            /* INSERISCI QUI LA TUA IMMAGINE */
+            background-image: url('pre-sogno.png'); 
+            
+            background-size: cover;
+            background-position: center;
+            filter: blur(15px); /* Effetto sfocato */
+            
+            z-index: 1; /* Livello più basso */
+        }
+
+        /* =========================================
+           3. IL CONTENITORE IN VETRO
+           ========================================= */
+        .glass-container {
+            position: relative; /* Serve per metterlo SOPRA allo sfondo */
+            z-index: 10; /* Sta davanti allo sfondo */
+            
+            width: 90%; 
+            max-width: 900px; 
+            height: 85vh; 
+            
+            /* Il vetro: semi-trasparente */
+            background: rgba(255, 255, 255, 0.5); 
+            backdrop-filter: blur(10px); 
+            -webkit-backdrop-filter: blur(10px);
+            
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 15px; 
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+            
+            padding: 40px;
+            overflow-y: auto; 
+            
+            opacity: 0;
+            animation: fadeIn 1s forwards 0.5s;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .glass-container::-webkit-scrollbar { width: 8px; }
+        .glass-container::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.3); border-radius: 10px; }
+        .glass-container::-webkit-scrollbar-track { background: transparent; }
+
+        /* =========================================
+           4. AREA PDF
+           ========================================= */
+        #pdf-render-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0; 
+        }
+
+        .pdf-page-canvas {
+            width: 100%; 
+            height: auto;
+            display: block;
+            margin: 0; 
+        }
+
+        #loading-msg {
+            text-align: center;
+            font-size: 20px;
+            color: #333;
+            margin-top: 50px;
+            font-style: italic;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- IL NUOVO LIVELLO SFONDO -->
+    <div class="sfondo-sfocato"></div>
+
+    <!-- IL VETRO -->
+    <div class="glass-container">
+        <div id="loading-msg">Estrazione dell'inchiostro in corso...</div>
+        <div id="pdf-render-container"></div>
+    </div>
+
+    <!-- LA MAGIA JAVASCRIPT CHE CANCELLA IL BIANCO -->
+    <script>
+        // =========================================
+        // 🔹 INSERISCI QUI IL NOME DEL TUO FILE PDF
+        // =========================================
+        const myPdfUrl = 'no_weight.pdf';
+
+        const container = document.getElementById('pdf-render-container');
+        const loadingMsg = document.getElementById('loading-msg');
+
+        async function loadAndRenderPDF() {
+            try {
+                const loadingTask = pdfjsLib.getDocument(myPdfUrl);
+                const pdf = await loadingTask.promise;
+                loadingMsg.style.display = 'none';
+                
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    
+                    const viewport = page.getViewport({ scale: 1.5 });
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'pdf-page-canvas';
+                    const context = canvas.getContext('2d');
+                    
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    container.appendChild(canvas);
+                    
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+                    
+                    await page.render(renderContext).promise;
+
+                    // Cancellazione pixel bianchi
+                    const imgData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imgData.data;
+                    
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i];
+                        const g = data[i+1];
+                        const b = data[i+2];
+                        
+                        const luminosita = 0.299 * r + 0.587 * g + 0.114 * b;
+                        
+                        data[i] = 15;     
+                        data[i+1] = 25;   
+                        data[i+2] = 20;   
+                        
+                        data[i+3] = 255 - luminosita; 
+                    }
+                    context.putImageData(imgData, 0, 0);
+                }
+            } catch (error) {
+                loadingMsg.innerHTML = "Errore: Impossibile caricare il file PDF.<br>Controlla che il nome sia corretto.";
+                loadingMsg.style.color = "red";
+                console.error(error);
+            }
+        }
+
+        loadAndRenderPDF();
+    </script>
+</body>
+</html>
